@@ -1,50 +1,83 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-# Діапазон значень x1, x2
-x1_values = np.arange(0, 2.01, 0.01)
-x2_values = np.arange(0, 2.01, 0.01)
 
-# Побудова сітки
-X1, X2 = np.meshgrid(x1_values, x2_values)
+def f12(x1, x2):
+    return 4 * x1 ** 3 + 2 * x1 * x2 + x2 ** 2 + 7
 
-# Цільові функції
-F12 = 4 * X1**3 + 2 * X1 * X2 + X2**2 + 7
-F21 = X1**3 + 3 * X1 * X2 - 2 * X2**2 - 8
 
-# ====== 1. Гарантовані результати ======
-# Табличний метод
-f12_star = np.min(np.max(F12, axis=1))  # Мінімаксне значення для F12
-f21_star = np.min(np.max(F21, axis=0))  # Мінімаксне значення для F21
+def f21(x1, x2):
+    return x1 ** 3 + 3 * x1 * x2 - 2 * x2 ** 2 - 8
 
-print(f"Гарантований результат (табличний метод): f12* = {f12_star:.4f}, f21* = {f21_star:.4f}")
 
-# Графічний метод: побудова теплових карт
-fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-sns.heatmap(F12, xticklabels=20, yticklabels=20, cmap="coolwarm", ax=ax[0])
-ax[0].set_title("Графік f12(x1, x2)")
-sns.heatmap(F21, xticklabels=20, yticklabels=20, cmap="coolwarm", ax=ax[1])
-ax[1].set_title("Графік f21(x2, x1)")
-plt.show()
+def build_grids(step=0.01, x_min=0, x_max=2):
+    x_vals = np.arange(x_min, x_max + step, step)
+    return x_vals, x_vals
 
-# ====== 2. Пошук множини Парето ======
-pareto_indices = (F12 >= f12_star) & (F21 >= f21_star)
-pareto_x1, pareto_x2 = X1[pareto_indices], X2[pareto_indices]
-pareto_f12, pareto_f21 = F12[pareto_indices], F21[pareto_indices]
 
-# Відображення множини Парето
-plt.scatter(pareto_f12, pareto_f21, color='red', label="Множина Парето")
-plt.xlabel("f12(x1, x2)")
-plt.ylabel("f21(x2, x1)")
-plt.legend()
-plt.title("Множина Парето")
-plt.show()
+def compute_value_matrices(x1_vals, x2_vals):
+    F12, F21 = np.meshgrid(x1_vals, x2_vals, indexing='ij')
+    return f12(F12, F21), f21(F12, F21)
 
-# ====== 3. Оптимальні значення x1*, x2* ======
-# Мінімізуємо ∆ = |f(x) - f*|
-delta = np.abs(F12 - f12_star) + np.abs(F21 - f21_star)
-min_index = np.unravel_index(np.argmin(delta), delta.shape)
-x1_opt, x2_opt = x1_values[min_index[1]], x2_values[min_index[0]]
 
-print(f"Оптимальні значення: x1* = {x1_opt:.2f}, x2* = {x2_opt:.2f}")
+def guaranteed_result_subject1(F12, x1_vals, x2_vals):
+    min_over_x2 = np.min(F12, axis=1)
+    i_opt = np.argmax(min_over_x2)
+    return min_over_x2[i_opt], x1_vals[i_opt], x2_vals[np.argmin(F12[i_opt, :])]
+
+
+def guaranteed_result_subject2(F21, x1_vals, x2_vals):
+    min_over_x1 = np.min(F21, axis=0)
+    j_opt = np.argmax(min_over_x1)
+    return min_over_x1[j_opt], x2_vals[j_opt], x1_vals[np.argmin(F21[:, j_opt])]
+
+
+def pareto_set(F12, F21, x1_vals, x2_vals, f12_star, f21_star):
+    mask = (F12 >= f12_star) & (F21 >= f21_star)
+    x1_pareto, x2_pareto = np.meshgrid(x1_vals, x2_vals, indexing='ij')
+    return list(zip(x1_pareto[mask], x2_pareto[mask], F12[mask], F21[mask]))
+
+
+def find_optimal_point_by_deviations(F12, F21, x1_vals, x2_vals):
+    f12_max, f21_max = np.max(F12), np.max(F21)
+    deviations = np.abs(F12 - f12_max) + np.abs(F21 - f21_max)
+    i_opt, j_opt = np.unravel_index(np.argmin(deviations), deviations.shape)
+    return x1_vals[i_opt], x2_vals[j_opt], F12[i_opt, j_opt], F21[i_opt, j_opt]
+
+
+def plot_contours(F, x1_vals, x2_vals, title):
+    X1, X2 = np.meshgrid(x1_vals, x2_vals, indexing='ij')
+    plt.figure(figsize=(6, 5))
+    cp = plt.contourf(X1, X2, F, levels=30, cmap='jet')
+    plt.colorbar(cp)
+    plt.xlabel("x2")
+    plt.ylabel("x1")
+    plt.title(title)
+    plt.grid(True)
+    plt.show()
+
+
+def main():
+    step = 0.01
+    x1_vals, x2_vals = build_grids(step)
+    F12, F21 = compute_value_matrices(x1_vals, x2_vals)
+
+    f12_star, x1_opt_1, x2_min_1 = guaranteed_result_subject1(F12, x1_vals, x2_vals)
+    print(f"Гарантований результат суб’єкта 1: f12* = {f12_star:.3f}, x1 = {x1_opt_1:.3f}, x2 = {x2_min_1:.3f}")
+
+    f21_star, x2_opt_2, x1_min_2 = guaranteed_result_subject2(F21, x1_vals, x2_vals)
+    print(f"Гарантований результат суб’єкта 2: f21* = {f21_star:.3f}, x2 = {x2_opt_2:.3f}, x1 = {x1_min_2:.3f}")
+
+    pareto_points = pareto_set(F12, F21, x1_vals, x2_vals, f12_star, f21_star)
+    print(f"Кількість точок Парето: {len(pareto_points)}")
+
+    x1_opt_dev, x2_opt_dev, f12_opt_dev, f21_opt_dev = find_optimal_point_by_deviations(F12, F21, x1_vals, x2_vals)
+    print(
+        f"Точка, що мінімізує суму відхилень: x1* = {x1_opt_dev:.3f}, x2* = {x2_opt_dev:.3f}, f12 = {f12_opt_dev:.3f}, f21 = {f21_opt_dev:.3f}")
+
+    plot_contours(F12, x1_vals, x2_vals, "Contour plot of f12(x1, x2)")
+    plot_contours(F21, x1_vals, x2_vals, "Contour plot of f21(x1, x2)")
+
+
+if __name__ == "__main__":
+    main()
