@@ -75,8 +75,8 @@ def main():
     print(
         f"Точка, що мінімізує суму відхилень: x1* = {x1_opt_dev:.3f}, x2* = {x2_opt_dev:.3f}, f12 = {f12_opt_dev:.3f}, f21 = {f21_opt_dev:.3f}")
 
-    plot(F12, x1_vals, x2_vals, "Contour plot of f12(x1, x2)")
-    plot(F21, x1_vals, x2_vals, "Contour plot of f21(x1, x2)")
+    plot(F12, x1_vals, x2_vals, "f12(x1, x2)")
+    plot(F21, x1_vals, x2_vals, "f21(x1, x2)")
 
 
 if __name__ == "__main__":
